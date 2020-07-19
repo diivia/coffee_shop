@@ -16,7 +16,7 @@ CORS(app)
 !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 '''
-# db_drop_and_create_all()
+#db_drop_and_create_all()
 
 ## ROUTES
 '''
@@ -29,19 +29,22 @@ CORS(app)
 '''
 
 
-@app.route('/drinks')
+@app.route('/drinks', methods=['GET'])
 def load_drinks():
-    drinks = Drink.query.order_by(Drink.id).all()
+    try:
+        drinks = Drink.query.all()
 
-    if len(drinks) == 0:
-        abort(404)
+        if len(drinks) == 0:
+            abort(404)
 
-    drinks_short = [drink.short() for drink in drinks]
+        drinks_short = [drink.short() for drink in drinks]
 
-    return jsonify({
-        'success': True,
-        'drinks': drinks_short
-    })
+        return jsonify({
+            'success': True,
+            'drinks': drinks_short
+        })
+    except:
+        abort(401)
 
 
 '''
@@ -54,11 +57,11 @@ def load_drinks():
 '''
 
 
-@requires_auth(permission='get:drinks-detail')
 @app.route('/drinks-detail')
-def load_drink_detail():
+@requires_auth(permission='get:drinks-detail')
+def load_drink_detail(self):
     try:
-        drinks = Drink.query.order_by(Drink.id).all()
+        drinks = Drink.query.all()
 
         if len(drinks) == 0:
             abort(404)
@@ -70,7 +73,7 @@ def load_drink_detail():
             'drinks': drinks_long
         })
     except:
-        abort(422)
+        abort(401)
 
 
 '''
@@ -84,16 +87,15 @@ def load_drink_detail():
 '''
 
 
-@requires_auth(permission='post:drinks')
 @app.route('/drinks', methods=['POST'])
-def post_drink():
+@requires_auth(permission='post:drinks')
+def post_drink(self):
     data = request.get_json()
     title = data.get('title', '')
     recipe = data.get('recipe', '')
 
     try:
         new_drink = Drink(title=title, recipe=json.dumps(recipe))
-        print(new_drink.long())
         if new_drink is None:
             abort(404)
 
@@ -105,7 +107,6 @@ def post_drink():
         })
     except:
         abort(422)
-
 
 
 '''
@@ -121,27 +122,28 @@ def post_drink():
 '''
 
 
-@requires_auth(permission='patch:drinks')
 @app.route('/drinks/<int:drink_id>', methods=['PATCH'])
-def update_drink(drink_id):
+@requires_auth(permission='patch:drinks')
+def update_drink(self, drink_id):
     data = request.get_json()
-    title = data.get('title', '')
-    recipe = data.get('recipe', '')
+    title = data.get('title', None)
+    recipe = data.get('recipe', None)
 
     drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
 
     if drink is None:
         abort(404)
 
-    drink.title = title
-    drink.recipe = json.dumps(recipe)
+    if title is not None:
+        drink.title = title
+    if recipe is not None:
+        drink.recipe = json.dumps(recipe)
     drink.update()
 
     return jsonify({
         'success': True,
         'drinks': [drink.long()]
     })
-
 
 
 '''
@@ -156,9 +158,9 @@ def update_drink(drink_id):
 '''
 
 
-@requires_auth(permission='delete:drinks')
 @app.route('/drinks/<int:drink_id>', methods=['DELETE'])
-def delete_drink(drink_id):
+@requires_auth(permission='delete:drinks')
+def delete_drink(self, drink_id):
     try:
         drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
 
